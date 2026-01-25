@@ -1,0 +1,35 @@
+# version: 1.0.0
+version: 1.0.0
+projectId: 00000000-0000-0000-0000-000000000000
+
+appDefinitions:
+  - id: app
+    manifestPath: ./appPackage/manifest.json
+
+provision:
+  - uses: botAadApp/create
+    with:
+      name: gap-analysis-bot
+    writeToEnvironmentFile:
+      clientId: BOT_ID
+      clientSecret: BOT_PASSWORD
+      objectId: BOT_OBJECT_ID
+
+  - uses: botFramework/create
+    with:
+      botId: ${{BOT_ID}}
+      name: gap-analysis-bot
+      messagingEndpoint: ${{BOT_ENDPOINT}}/api/messages
+      description: ""
+      channels:
+        - name: msteams
+
+deploy:
+  - uses: cli/runNpmCommand
+    name: install dependencies
+    with:
+      args: install
+  - uses: cli/runNpmCommand
+    name: build app
+    with:
+      args: run build

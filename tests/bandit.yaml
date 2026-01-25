@@ -1,0 +1,9 @@
+# Bandit config for SAST
+exclude:
+  - venv
+  - tests
+  - e2e
+  - manifest
+skips:
+  - B101  # assert used
+  - B404  # import subprocess
