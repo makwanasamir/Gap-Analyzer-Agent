@@ -33,6 +33,8 @@ class UserSession:
         self.state = "idle"  # idle, waiting_docA, waiting_docB
         self.docA_text = ""
         self.docA_filename = ""
+        self.docA_texts = []    # List of individual file texts
+        self.docA_filenames = [] # List of individual filenames
         self.docB_text = ""  # Combined text
         self.docB_filename = "" # Display name for combined text
         self.docB_texts = []    # List of individual file texts
@@ -48,6 +50,8 @@ class UserSession:
         self.state = "idle"
         self.docA_text = ""
         self.docA_filename = ""
+        self.docA_texts = []
+        self.docA_filenames = []
         self.docB_text = ""
         self.docB_filename = ""
         self.docB_texts = []
@@ -253,6 +257,8 @@ class GapAnalysisBot(ActivityHandler):
             session.state = "idle"
             session.docA_text = ""
             session.docA_filename = ""
+            session.docA_texts = []
+            session.docA_filenames = []
             session.docB_text = ""
             session.docB_filename = ""
             session.docB_texts = []
@@ -328,9 +334,30 @@ class GapAnalysisBot(ActivityHandler):
     async def _process_docA_upload(
         self, turn_context: TurnContext, session: UserSession, attachments: list
     ):
-        """Process Document A file upload."""
-        if not attachments:
-            error_msg = "No file was attached."
+        """Process Document A file upload(s)."""
+        processed = []
+        
+        # Use MAX_DOCB_FILES limit for DocA as well for now, or just hardcode 10
+        limit = getattr(self, "MAX_DOCA_FILES", 10)
+        
+        for attachment in attachments[:limit]:
+            filename = attachment.name or "document_a"
+            
+            if not FileHandler.is_supported(filename):
+                continue
+            
+            try:
+                content_url = attachment.content_url
+                text = await FileHandler.process_attachment(content_url, filename)
+                
+                session.docA_texts.append(text)
+                session.docA_filenames.append(filename)
+                processed.append(filename)
+            except Exception as e:
+                self.logger.error(f"Error processing {filename}: {e}")
+        
+        if not processed:
+            error_msg = "No valid files were processed. Please try again with PDF, Word, or Text files."
             await self._send_card(
                 turn_context, session,
                 get_error_card(error_msg),
@@ -338,44 +365,30 @@ class GapAnalysisBot(ActivityHandler):
                 {"message": error_msg}
             )
             return
-            
-        attachment = attachments[0]
-        filename = attachment.name or "document"
         
-        if not FileHandler.is_supported(filename):
-            error_msg = f"Unsupported file type: {filename}. Please use PDF, Word, or Text files."
-            await self._send_card(
-                turn_context, session,
-                get_error_card(error_msg),
-                "error",
-                {"message": error_msg}
-            )
-            return
+        # Format DocA text with headers if multiple files, or just single if one?
+        # Always using headers is safer for consistency, but if single file, maybe optional.
+        # Let's use the standard "## File:" format for consistency as requested.
+        formatted_files = []
+        for name, text in zip(session.docA_filenames, session.docA_texts):
+             formatted_files.append(f"## File: {name}\n{text}")
+             
+        session.docA_text = "\n\n".join(formatted_files)
         
-        try:
-            content_url = attachment.content_url
-            text = await FileHandler.process_attachment(content_url, filename)
+        # Set filename for display (e.g. "3 Files")
+        if len(processed) == 1:
+            session.docA_filename = processed[0]
+        else:
+            session.docA_filename = f"{len(processed)} File(s)"
             
-            session.docA_text = text
-            session.docA_filename = filename
-            session.state = "waiting_docB"
-            
-            await self._send_card(
-                turn_context, session,
-                get_docA_received_card(filename),
-                "docA_received",
-                {"filename": filename}
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Error processing file: {e}", exc_info=True)
-            error_msg = f"Error processing file: {str(e)}"
-            await self._send_card(
-                turn_context, session,
-                get_error_card(error_msg),
-                "error",
-                {"message": error_msg}
-            )
+        session.state = "waiting_docB"
+        
+        await self._send_card(
+            turn_context, session,
+            get_docA_received_card(session.docA_filename),
+            "docA_received",
+            {"filename": session.docA_filename}
+        )
     
     async def _process_docB_upload(
         self, turn_context: TurnContext, session: UserSession, attachments: list
@@ -409,8 +422,18 @@ class GapAnalysisBot(ActivityHandler):
             )
             return
         
-        # Set docB variables and run analysis
-        session.docB_text = "\n\n---\n\n".join(session.docB_texts)
+        # Set docB variables with clear file delimiters for LLM
+        formatted_files = []
+        # We need to match filenames to texts. 
+        # Since we just appended them in sync above, we can use the last N added.
+        # But wait, session.docB_texts accumulates if we upload multiple batches? 
+        # Assuming current flow is one-shot upload or accumulation is intended.
+        
+        # Let's rebuild the full text string from ALL accumulated files in session
+        for name, text in zip(session.docB_filenames, session.docB_texts):
+            formatted_files.append(f"## File: {name}\n{text}")
+            
+        session.docB_text = "\n\n".join(formatted_files)
         session.docB_filename = f"{len(session.docB_filenames)} File(s)"
         session.analysis_objective = "Compare Source against Target documents"
         

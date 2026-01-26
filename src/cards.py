@@ -90,7 +90,7 @@ def get_docA_upload_card() -> Attachment:
             },
             {
                 "type": "TextBlock",
-                "text": "Use the paperclip button below the chat to attach your source document.",
+                "text": "Use the paperclip button below the chat to attach your source document(s). You can select multiple files.",
                 "wrap": True,
                 "spacing": "Small"
             },
