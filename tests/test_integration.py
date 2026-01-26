@@ -20,44 +20,34 @@ class TestEndToEndWorkflow:
         """Test full gap analysis with real Azure OpenAI call."""
         from src.analyze import analyze_gap
         
-        jd = """
-        Software Engineer - Full Stack
+        docA = """
+        System Requirements Specification
         
-        We are looking for a Full Stack Software Engineer with:
-        - 3+ years of experience in JavaScript/TypeScript
-        - Strong knowledge of React and Node.js
-        - Experience with cloud platforms (AWS or Azure)
-        - Database experience (SQL and NoSQL)
-        - Strong communication skills
-        - Bachelor's degree in Computer Science
+        We are looking for a system with:
+        - High availability (99.9%)
+        - RESTful API architecture
+        - Secure authentication (OAuth 2.0)
+        - Relational database storage
         """
         
-        resume = """
-        John Doe - Software Developer
+        docB = """
+        Proposed Architecture
         
-        Experience:
-        - 2 years at TechCorp as Frontend Developer
-        - Built React applications
-        - Used JavaScript and TypeScript
-        - Worked with PostgreSQL database
-        
-        Education:
-        - Bachelor's in Computer Science, State University
-        
-        Skills:
-        - React, JavaScript, TypeScript
-        - Node.js (basic)
-        - PostgreSQL, MySQL
-        - Git, Agile
+        Features:
+        - API built with GraphQL
+        - MongoDB storage
+        - Basic authentication
+        - 99.0% uptime SLA
         """
         
-        result = await analyze_gap(jd, resume, "Identify gaps in skills and experience")
+        result = await analyze_gap(docA, docB, "Identify gaps in requirements compliance")
         
         # Verify result contains expected sections
         # Verify result contains expected sections or content
         # The prompt asks for gap analysis, so likely contains "Gap", "Criterion", "Addressed", etc.
         result_lower = result.lower()
-        success_indicators = ["gap", "analysis", "criterion", "addressed", "missing", "matched"]
+        success_indicators = ["gap", "analysis", "criterion", "addressed", "missing", "matched", 
+                             "status", "severity", "recommendation", "conflict", "misalignment"]
         found = [ind for ind in success_indicators if ind in result_lower]
         assert len(found) >= 2, f"Result did not contain enough analysis keywords. Got: {result[:200]}..."
         assert len(result) > 100
@@ -71,7 +61,7 @@ class TestInputValidation:
         """Test that validation errors are raised correctly."""
         from src.analyze import validate_inputs
         
-        is_valid, error = validate_inputs('', 'Valid resume content here', 'Objective')
+        is_valid, error = validate_inputs('', 'Valid Document B content here', 'Objective')
         
         assert not is_valid
         assert "Document A is required" in error
@@ -81,7 +71,7 @@ class TestInputValidation:
         """Test that short inputs are rejected."""
         from src.analyze import validate_inputs
         
-        is_valid, error = validate_inputs('Short', 'Valid resume content here that is long enough to pass validation', 'Objective')
+        is_valid, error = validate_inputs('Short', 'Valid Document B that is long enough to pass validation', 'Objective')
         
         assert not is_valid
         assert "too short" in error

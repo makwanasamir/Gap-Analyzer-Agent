@@ -30,16 +30,14 @@ from .file_handler import FileHandler
 class UserSession:
     """Track user's upload state and card history."""
     def __init__(self):
-        self.state = "idle"  # idle, waiting_jd, waiting_resumes
+        self.state = "idle"  # idle, waiting_docA, waiting_docB
         self.docA_text = ""
         self.docA_filename = ""
-        self.docB_text = ""
-        self.docB_filename = ""
+        self.docB_text = ""  # Combined text
+        self.docB_filename = "" # Display name for combined text
+        self.docB_texts = []    # List of individual file texts
+        self.docB_filenames = [] # List of individual filenames
         self.analysis_objective = ""
-        self.jd_text = ""
-        self.jd_filename = ""
-        self.resume_texts = []
-        self.resume_filenames = []
         self.input_source = "paste"  # "paste" or "file"
         # Card tracking
         self.last_card_id = None
@@ -52,11 +50,9 @@ class UserSession:
         self.docA_filename = ""
         self.docB_text = ""
         self.docB_filename = ""
+        self.docB_texts = []
+        self.docB_filenames = []
         self.analysis_objective = ""
-        self.jd_text = ""
-        self.jd_filename = ""
-        self.resume_texts = []
-        self.resume_filenames = []
         self.input_source = "paste"
         self.last_card_id = None
         self.last_card_type = None
@@ -66,7 +62,7 @@ class UserSession:
 class GapAnalysisBot(ActivityHandler):
     """Bot that handles gap analysis between documents."""
     
-    MAX_RESUMES = 10
+    MAX_DOCB_FILES = 10
     
     def __init__(self, conversation_state: ConversationState, user_state: UserState):
         if conversation_state is None:
@@ -223,7 +219,7 @@ class GapAnalysisBot(ActivityHandler):
         action = value.get("action", "")
         
         if action == "uploadDocs":
-            session.state = "waiting_jd"
+            session.state = "waiting_docA"
             await self._send_card(
                 turn_context, session, 
                 get_docA_upload_card(), 
@@ -259,11 +255,9 @@ class GapAnalysisBot(ActivityHandler):
             session.docA_filename = ""
             session.docB_text = ""
             session.docB_filename = ""
+            session.docB_texts = []
+            session.docB_filenames = []
             session.analysis_objective = ""
-            session.jd_text = ""
-            session.jd_filename = ""
-            session.resume_texts = []
-            session.resume_filenames = []
         else:
             await self._send_card(
                 turn_context, session, 
@@ -279,34 +273,8 @@ class GapAnalysisBot(ActivityHandler):
         docB = value.get("docB", "").strip()
         analysis_objective = value.get("analysisObjective", "").strip()
         
-        # Validate
-        if not docA or len(docA) < 20:
-            error_msg = f"Please paste a valid Document A (at least 20 characters). Received: {len(docA)} chars"
-            await self._send_card(
-                turn_context, session,
-                get_error_card(error_msg),
-                "error",
-                {"message": error_msg}
-            )
-            return
-        if not docB or len(docB) < 20:
-            error_msg = f"Please paste a valid Document B (at least 20 characters). Received: {len(docB)} chars"
-            await self._send_card(
-                turn_context, session,
-                get_error_card(error_msg),
-                "error",
-                {"message": error_msg}
-            )
-            return
-        if not analysis_objective or len(analysis_objective) < 5:
-            error_msg = "Please provide an analysis objective (at least 5 characters)."
-            await self._send_card(
-                turn_context, session,
-                get_error_card(error_msg),
-                "error",
-                {"message": error_msg}
-            )
-            return
+        # Set source to paste mode
+        session.input_source = "paste"
             
         # Save to session (for Edit Inputs to work)
         session.docA_text = docA
@@ -347,20 +315,20 @@ class GapAnalysisBot(ActivityHandler):
     ):
         """Handle uploaded file attachments."""
         if session.state == "idle":
-            session.state = "waiting_jd"
+            session.state = "waiting_docA"
         
         # Mark as file upload source for token-based validation
         session.input_source = "file"
         
-        if session.state == "waiting_jd":
-            await self._process_jd_upload(turn_context, session, attachments)
-        elif session.state == "waiting_resumes":
-            await self._process_resume_upload(turn_context, session, attachments)
+        if session.state == "waiting_docA":
+            await self._process_docA_upload(turn_context, session, attachments)
+        elif session.state == "waiting_docB":
+            await self._process_docB_upload(turn_context, session, attachments)
     
-    async def _process_jd_upload(
+    async def _process_docA_upload(
         self, turn_context: TurnContext, session: UserSession, attachments: list
     ):
-        """Process JD (Document A) file upload."""
+        """Process Document A file upload."""
         if not attachments:
             error_msg = "No file was attached."
             await self._send_card(
@@ -388,11 +356,9 @@ class GapAnalysisBot(ActivityHandler):
             content_url = attachment.content_url
             text = await FileHandler.process_attachment(content_url, filename)
             
-            session.jd_text = text
-            session.jd_filename = filename
             session.docA_text = text
             session.docA_filename = filename
-            session.state = "waiting_resumes"
+            session.state = "waiting_docB"
             
             await self._send_card(
                 turn_context, session,
@@ -411,14 +377,14 @@ class GapAnalysisBot(ActivityHandler):
                 {"message": error_msg}
             )
     
-    async def _process_resume_upload(
+    async def _process_docB_upload(
         self, turn_context: TurnContext, session: UserSession, attachments: list
     ):
-        """Process resume (Document B) file uploads."""
+        """Process Document B file uploads."""
         processed = []
         
-        for attachment in attachments[:self.MAX_RESUMES]:
-            filename = attachment.name or "resume"
+        for attachment in attachments[:self.MAX_DOCB_FILES]:
+            filename = attachment.name or "document_b"
             
             if not FileHandler.is_supported(filename):
                 continue
@@ -427,14 +393,14 @@ class GapAnalysisBot(ActivityHandler):
                 content_url = attachment.content_url
                 text = await FileHandler.process_attachment(content_url, filename)
                 
-                session.resume_texts.append(text)
-                session.resume_filenames.append(filename)
+                session.docB_texts.append(text)
+                session.docB_filenames.append(filename)
                 processed.append(filename)
             except Exception as e:
                 self.logger.error(f"Error processing {filename}: {e}")
         
         if not processed:
-            error_msg = "No valid resume files were processed. Please try again."
+            error_msg = "No valid files were processed. Please try again."
             await self._send_card(
                 turn_context, session,
                 get_error_card(error_msg),
@@ -443,10 +409,10 @@ class GapAnalysisBot(ActivityHandler):
             )
             return
         
-        # Set docB from resumes and run analysis
-        session.docB_text = "\n\n---\n\n".join(session.resume_texts)
-        session.docB_filename = f"{len(session.resume_filenames)} Resume(s)"
-        session.analysis_objective = "Compare candidate skills against job requirements"
+        # Set docB variables and run analysis
+        session.docB_text = "\n\n---\n\n".join(session.docB_texts)
+        session.docB_filename = f"{len(session.docB_filenames)} File(s)"
+        session.analysis_objective = "Compare Source against Target documents"
         
         await self._run_analysis(turn_context, session)
     
@@ -475,7 +441,17 @@ class GapAnalysisBot(ActivityHandler):
                     "docB_names": [session.docB_filename]
                 }
             )
+        except ValueError as e:
+            # Validation errors
+            error_msg = str(e)
+            await self._send_card(
+                turn_context, session,
+                get_error_card(error_msg),
+                "error",
+                {"message": error_msg}
+            )
         except Exception as e:
+            # Unexpected errors
             self.logger.error(f"Analysis error: {e}", exc_info=True)
             error_msg = f"Analysis failed: {str(e)}"
             await self._send_card(

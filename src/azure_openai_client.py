@@ -33,21 +33,40 @@ class AzureOpenAIClient:
             Model response text
         """
         try:
-            response = await self.client.chat.completions.create(
-                model=self.deployment,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                max_tokens=2000,
-                temperature=0.1,
-                top_p=0.95
-            )
+            import asyncio
+            import random
             
-            if not response.choices:
-                raise ValueError("Empty response from Azure OpenAI")
+            max_retries = 3
+            base_delay = 2.0
             
-            return response.choices[0].message.content.strip()
-            
+            for attempt in range(max_retries):
+                try:
+                    response = await self.client.chat.completions.create(
+                        model=self.deployment,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_message}
+                        ],
+                        max_tokens=2000,
+                        temperature=0.1,
+                        top_p=0.95
+                    )
+                    
+                    if not response.choices:
+                        raise ValueError("Empty response from Azure OpenAI")
+                    
+                    return response.choices[0].message.content.strip()
+                    
+                except Exception as e:
+                    error_str = str(e).lower()
+                    is_rate_limit = "429" in error_str or "too many requests" in error_str
+                    is_server_error = "500" in error_str or "503" in error_str
+                    
+                    if (is_rate_limit or is_server_error) and attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        await asyncio.sleep(delay)
+                        continue
+                    raise e
+                    
         except Exception as e:
             raise RuntimeError(f"Azure OpenAI API error: {str(e)}")

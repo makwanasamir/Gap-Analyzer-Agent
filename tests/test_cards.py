@@ -120,8 +120,9 @@ class TestResultCard:
         from src.cards import get_result_card
         
         analysis = "## Matched Skills\n- Python\n- JavaScript"
-        jd_filename = "job_description.txt"
-        resume_filenames = ["resume1.pdf", "resume2.docx"]
+        analysis = "## Matched Skills\n- Python\n- JavaScript"
+        jd_filename = "document_a.txt"
+        resume_filenames = ["document_b_1.pdf", "document_b_2.docx"]
         
         card = get_result_card(analysis, jd_filename, resume_filenames)
         
@@ -136,8 +137,8 @@ class TestResultCard:
         from src.cards import get_result_card
         
         analysis = "This is the gap analysis result."
-        jd_filename = "job.txt"
-        resume_filenames = ["resume.pdf"]
+        jd_filename = "doc_a.txt"
+        resume_filenames = ["doc_b.pdf"]
         
         card = get_result_card(analysis, jd_filename, resume_filenames)
         content = card["content"]

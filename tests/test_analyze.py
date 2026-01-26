@@ -79,10 +79,12 @@ class TestValidateInputs:
         assert "21,000" in error
 
     def test_input_too_long_file_mode(self):
-        # File mode limit is 70,000 tokens (approx 280,000 chars)
-        # We need a LOT of text to trigger this
-        docA = "This is a very long document. " * 5000  # ~150k chars
-        docB = "This is another long document. " * 5000 # ~150k chars
+        # File mode limit is 70,000 tokens
+        # "This is a very long document. " is approx 7 tokens
+        # 8000 * 7 = 56,000 tokens per doc
+        # Total = 112,000 tokens (well over 70k)
+        docA = "This is a very long document. " * 8000
+        docB = "This is another long document. " * 8000
         objective = "Analyze gaps."
         
         # This should trigger token limit

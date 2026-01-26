@@ -69,17 +69,22 @@ async def messages(req: Request) -> Response:
         try:
             await ADAPTER.process_activity(activity, auth_header, bot_logic)
         except PermissionError:
-            # Auth failed - this is expected in local dev with Agents Playground
-            # Create context manually and run bot logic
-            LOGGER.debug("Auth bypassed for local dev")
-            context = TurnContext(ADAPTER, activity)
-            
-            # Run bot logic directly
-            await BOT.on_turn(context)
-            
-            # Save state manually since we bypassed the adapter
-            await CONVERSATION_STATE.save_changes(context)
-            await USER_STATE.save_changes(context)
+            # Auth failed
+            if Config.is_local_dev():
+                # Bypass auth only in local dev
+                LOGGER.debug("Auth bypassed for local dev")
+                context = TurnContext(ADAPTER, activity)
+                
+                # Run bot logic directly
+                await BOT.on_turn(context)
+                
+                # Save state manually since we bypassed the adapter
+                await CONVERSATION_STATE.save_changes(context)
+                await USER_STATE.save_changes(context)
+            else:
+                # In production, reject unauthorized requests
+                LOGGER.warning("Unauthorized request rejected in production mode")
+                return Response(status=401, text="Unauthorized")
         
         return Response(status=200)
         

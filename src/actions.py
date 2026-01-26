@@ -105,14 +105,14 @@ async def handle_file_upload(context: TurnContext, state: TurnState, attachments
     
     # Initialize step if first time
     if current_step == "idle":
-        state.conversation["step"] = "waiting_jd"
+        state.conversation["step"] = "waiting_docA"
         await context.send_activity(
-            MessageFactory.text("📄 Please upload your Job Description file.")
+            MessageFactory.text("📄 Please upload your Document A (Source) file.")
         )
         return
     
-    # Process JD (First file)
-    if state.conversation["step"] == "waiting_jd":
+    # Process DocA (First file)
+    if state.conversation["step"] == "waiting_docA":
         if not attachments:
             await context.send_activity(
                 MessageFactory.text("No attachments found.")
@@ -132,13 +132,13 @@ async def handle_file_upload(context: TurnContext, state: TurnState, attachments
             text = await FileHandler.process_attachment(att.content_url, name)
             state.conversation["docA_text"] = text
             state.conversation["docA_filename"] = name
-            state.conversation["step"] = "waiting_resumes"
+            state.conversation["step"] = "waiting_docB"
             
             await context.send_activity(
                 MessageFactory.attachment(get_docA_received_card(name))
             )
             await context.send_activity(
-                MessageFactory.text("📄 Now please upload candidate resumes.")
+                MessageFactory.text("📄 Now please upload Document B (Target) files.")
             )
         except Exception as e:
             logger.error(f"File processing error: {e}", exc_info=True)
@@ -146,34 +146,34 @@ async def handle_file_upload(context: TurnContext, state: TurnState, attachments
                 MessageFactory.text(f"❌ Error reading file: {e}")
             )
     
-    # Process Resumes
-    elif state.conversation["step"] == "waiting_resumes":
-        resumes = []
+    # Process DocB
+    elif state.conversation["step"] == "waiting_docB":
+        docB_files = []
         for att in attachments:
             name = att.name or "unknown"
             if FileHandler.is_supported(name):
                 try:
                     text = await FileHandler.process_attachment(att.content_url, name)
-                    resumes.append((name, text))
+                    docB_files.append((name, text))
                 except Exception as e:
-                    logger.error(f"Resume processing error: {e}", exc_info=True)
+                    logger.error(f"File processing error: {e}", exc_info=True)
         
-        if not resumes:
+        if not docB_files:
             await context.send_activity(
-                MessageFactory.text("❌ No valid resumes found.")
+                MessageFactory.text("❌ No valid files found.")
             )
             return
 
-        # Combine resumes for DocB
-        full_resume_text = "\n\n---\n\n".join([r[1] for r in resumes])
-        resume_names = [r[0] for r in resumes]
+        # Combine files for DocB
+        full_docB_text = "\n\n---\n\n".join([f[1] for f in docB_files])
+        docB_names = [f[0] for f in docB_files]
         
-        state.conversation["docB_text"] = full_resume_text
-        state.conversation["docB_filename"] = f"{len(resumes)} Resume(s)"
+        state.conversation["docB_text"] = full_docB_text
+        state.conversation["docB_filename"] = f"{len(docB_files)} File(s)"
         
         # Set default objective if not provided
         if not state.conversation.get("analysis_objective"):
-            state.conversation["analysis_objective"] = "Compare candidate skills against job requirements"
+            state.conversation["analysis_objective"] = "Compare Source against Target documents"
         
         await context.send_activity(MessageFactory.text("⏳ Analyzing files..."))
         
