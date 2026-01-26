@@ -93,11 +93,12 @@ async def messages(req: Request) -> Response:
         return Response(status=500, text=str(e))
 
 
+# Init web app globally for Gunicorn
+APP = web.Application()
+APP.router.add_post("/api/messages", messages)
+
 if __name__ == "__main__":
     LOGGER.info(f"🚀 M365 Gap Analysis Agent starting on port {Config.PORT}")
     LOGGER.info(f"   Mode: {'Local Dev' if not Config.APP_ID else 'Production'}")
     
-    app = web.Application()
-    app.router.add_post("/api/messages", messages)
-    
-    web.run_app(app, host="127.0.0.1", port=Config.PORT)
+    web.run_app(APP, host="127.0.0.1", port=Config.PORT)

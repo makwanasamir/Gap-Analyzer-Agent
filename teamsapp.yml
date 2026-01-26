@@ -4,7 +4,7 @@ projectId: 00000000-0000-0000-0000-000000000000
 
 appDefinitions:
   - id: app
-    manifestPath: ./appPackage/manifest.json
+    manifestPath: ./manifest/manifest.json
 
 provision:
   - uses: botAadApp/create
@@ -14,6 +14,15 @@ provision:
       clientId: BOT_ID
       clientSecret: BOT_PASSWORD
       objectId: BOT_OBJECT_ID
+      tenantId: BOT_TENANT_ID
+
+  - uses: azureAppService/create
+    with:
+      name: gap-analysis-bot
+      sku: F1
+    writeToEnvironmentFile:
+      resourceId: BOT_AZURE_APP_SERVICE_RESOURCE_ID
+      defaultDomain: BOT_ENDPOINT
 
   - uses: botFramework/create
     with:
@@ -25,11 +34,7 @@ provision:
         - name: msteams
 
 deploy:
-  - uses: cli/runNpmCommand
-    name: install dependencies
+  - uses: azureAppService/zipDeploy
     with:
-      args: install
-  - uses: cli/runNpmCommand
-    name: build app
-    with:
-      args: run build
+      artifactFolder: .
+      resourceId: ${{BOT_AZURE_APP_SERVICE_RESOURCE_ID}}
