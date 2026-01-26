@@ -18,11 +18,15 @@ class TestEdgeCases:
         assert isinstance(content, bytes)
 
     def test_too_many_resumes(self):
-        jd = "Valid JD with enough content."
-        resumes_text = "Valid resume. " * 1000
-        is_valid, error = validate_inputs(jd, resumes_text, "Analyze gaps.")
+        # File/Resume upload scenario - use token based validation
+        # Limit is 70k tokens ~ 90k words
+        jd = "Valid JD with enough content." * 100  
+        resumes_text = "Valid resume content. " * 30000 # ~90k words > 70k tokens
+        
+        is_valid, error = validate_inputs(jd, resumes_text, "Analyze gaps.", source="file")
         assert not is_valid
-        assert "too long" in error
+        assert "exceed" in error
+        assert "tokens" in error
 
     def test_resume_with_script_injection(self):
         jd = "Valid JD with enough content."

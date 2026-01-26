@@ -68,19 +68,34 @@ class TestValidateInputs:
         assert is_valid is False
         assert "too short" in error
 
-    def test_input_too_long(self):
-        docA = "A" * 7000
-        docB = "B" * 7000
+    def test_input_too_long_paste_mode(self):
+        # Paste mode limit is 21,000 characters
+        docA = "A" * 11000
+        docB = "B" * 11000
         objective = "Analyze gaps."
-        is_valid, error = validate_inputs(docA, docB, objective)
+        is_valid, error = validate_inputs(docA, docB, objective, source="paste")
         assert is_valid is False
         assert "too long" in error
-        assert "12,000" in error
+        assert "21,000" in error
+
+    def test_input_too_long_file_mode(self):
+        # File mode limit is 70,000 tokens (approx 280,000 chars)
+        # We need a LOT of text to trigger this
+        docA = "This is a very long document. " * 5000  # ~150k chars
+        docB = "This is another long document. " * 5000 # ~150k chars
+        objective = "Analyze gaps."
+        
+        # This should trigger token limit
+        is_valid, error = validate_inputs(docA, docB, objective, source="file")
+        assert is_valid is False
+        assert "exceed" in error
+        assert "70,000 tokens" in error
 
     def test_input_at_length_limit(self):
-        docA = "A" * 6000
-        docB = "B" * 5990
-        objective = "1234567890"
+        # Just under the 21,000 limit
+        docA = "A" * 10000
+        docB = "B" * 10000
+        objective = "1234567890"  # 10 chars, total = 20,010
         is_valid, error = validate_inputs(docA, docB, objective)
         assert is_valid is True
         assert error == ""
