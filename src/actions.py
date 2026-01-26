@@ -188,7 +188,7 @@ async def handle_file_upload(context: TurnContext, state: TurnState, attachments
                     get_result_card(
                         result, 
                         state.conversation["docA_filename"], 
-                        resume_names
+                        docB_names
                     )
                 )
             )
