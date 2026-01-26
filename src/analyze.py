@@ -1,5 +1,10 @@
 """General Gap Analysis logic using Azure OpenAI."""
+import tiktoken
 from .azure_openai_client import AzureOpenAIClient
+
+# Token limits
+MAX_TOKENS_FILE_UPLOAD = 70000  # 70k tokens for file uploads
+MAX_CHARS_PASTE_MODE = 21000    # 21k chars for pasted text
 
 # Universal system prompt for gap analysis
 SYSTEM_PROMPT = """You are a Gap Analysis Agent. Your task is to compare Document A (the current state or source) against Document B (the target state, ideal, or requirements) based on a specific analysis objective.
@@ -38,7 +43,31 @@ Omit meta-commentary (e.g., "Now I will analyze...").
 Operate strictly within these rules and the provided text."""
 
 
-def validate_inputs(docA: str, docB: str, analysis_objective: str) -> tuple[bool, str]:
+def count_tokens(text: str, model: str = "gpt-4") -> int:
+    """
+    Count tokens in text using tiktoken.
+    
+    Args:
+        text: Text to count tokens for
+        model: Model name for encoding (default: gpt-4)
+        
+    Returns:
+        Number of tokens
+    """
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        # Fallback to cl100k_base for newer models
+        encoding = tiktoken.get_encoding("cl100k_base")
+    return len(encoding.encode(text))
+
+
+def validate_inputs(
+    docA: str, 
+    docB: str, 
+    analysis_objective: str, 
+    source: str = "paste"
+) -> tuple[bool, str]:
     """
     Validate inputs before analysis.
     
@@ -46,6 +75,7 @@ def validate_inputs(docA: str, docB: str, analysis_objective: str) -> tuple[bool
         docA: Document A text
         docB: Document B text
         analysis_objective: User's analysis objective
+        source: Input source - "paste" for UI text input, "file" for file uploads
         
     Returns:
         Tuple of (is_valid, error_message)
@@ -68,15 +98,28 @@ def validate_inputs(docA: str, docB: str, analysis_objective: str) -> tuple[bool
     if len(analysis_objective.strip()) < 5:
         return False, "Analysis objective is too short. Please provide a meaningful objective."
     
-    # Limit total input to ~12000 chars to stay within token limits
-    total_length = len(docA) + len(docB) + len(analysis_objective)
-    if total_length > 12000:
-        return False, f"Input too long ({total_length} chars). Please shorten to under 12,000 characters total."
+    # Source-specific validation
+    if source == "paste":
+        # Pasted text mode: Use character limit (enforced by UI as well)
+        total_length = len(docA) + len(docB) + len(analysis_objective)
+        if total_length > MAX_CHARS_PASTE_MODE:
+            return False, f"Input too long ({total_length:,} chars). Please shorten to under {MAX_CHARS_PASTE_MODE:,} characters total."
+    else:
+        # File upload mode: Use token limit
+        combined_text = f"{docA}\n\n{docB}\n\n{analysis_objective}"
+        token_count = count_tokens(combined_text)
+        if token_count > MAX_TOKENS_FILE_UPLOAD:
+            return False, f"Uploaded documents exceed {MAX_TOKENS_FILE_UPLOAD:,} tokens ({token_count:,} tokens). Please remove some files to reduce content."
     
     return True, ""
 
 
-async def analyze_gap(docA: str, docB: str, analysis_objective: str) -> str:
+async def analyze_gap(
+    docA: str, 
+    docB: str, 
+    analysis_objective: str,
+    source: str = "paste"
+) -> str:
     """
     Perform gap analysis between Document A and Document B based on the user's analysis objective.
     
@@ -84,11 +127,12 @@ async def analyze_gap(docA: str, docB: str, analysis_objective: str) -> str:
         docA: Document A text
         docB: Document B text
         analysis_objective: User's analysis objective
+        source: Input source - "paste" for UI text input, "file" for file uploads
         
     Returns:
         Analysis result text
     """
-    is_valid, error = validate_inputs(docA, docB, analysis_objective)
+    is_valid, error = validate_inputs(docA, docB, analysis_objective, source)
     if not is_valid:
         raise ValueError(error)
     

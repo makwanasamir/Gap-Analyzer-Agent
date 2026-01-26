@@ -1,7 +1,17 @@
-"""Adaptive Card definitions for the Gap Analysis Bot."""
+"""Adaptive Card definitions for the Gap Analysis Agent.
+
+UI/UX Design Principles:
+- Clean, minimal design with clear visual hierarchy
+- Completed cards show SAME content as original, just without buttons
+- Teams payload safe (< 28KB total)
+"""
 from botbuilder.core import CardFactory
 from botbuilder.schema import Attachment
 
+
+# =============================================================================
+# ACTIVE CARDS (with buttons)
+# =============================================================================
 
 def get_welcome_card() -> Attachment:
     """Create the welcome card with instructions."""
@@ -12,48 +22,60 @@ def get_welcome_card() -> Attachment:
         "body": [
             {
                 "type": "TextBlock",
-                "text": "🎯 General Gap Analysis Agent",
+                "text": "Gap Analysis Agent",
                 "weight": "Bolder",
                 "size": "Large",
                 "wrap": True
             },
             {
                 "type": "TextBlock",
-                "text": "Compare any two documents (A = source/current, B = target/ideal/guardrails) to find gaps based on your analysis objective.",
+                "text": "Compare two documents to identify gaps, mismatches, or missing elements.",
                 "wrap": True,
                 "spacing": "Small"
             },
             {
-                "type": "TextBlock",
-                "text": "📋 Choose an option:",
-                "weight": "Bolder",
+                "type": "ColumnSet",
                 "spacing": "Medium",
-                "wrap": True
+                "columns": [
+                    {
+                        "type": "Column",
+                        "width": "stretch",
+                        "items": [
+                            {
+                                "type": "TextBlock",
+                                "text": "**Document A** = Source / Current state",
+                                "wrap": True
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": "**Document B** = Target / Requirements",
+                                "wrap": True,
+                                "spacing": "Small"
+                            }
+                        ]
+                    }
+                ]
             }
         ],
         "actions": [
             {
                 "type": "Action.Submit",
-                "title": "📝 Paste Text",
-                "data": {
-                    "action": "pasteText"
-                },
+                "title": "Paste Text",
+                "data": {"action": "pasteText"},
                 "style": "positive"
             },
             {
                 "type": "Action.Submit",
-                "title": "📎 Attach Files (Teams only)",
-                "data": {
-                    "action": "uploadDocs"
-                }
+                "title": "Attach Files",
+                "data": {"action": "uploadDocs"}
             }
         ]
     }
     return CardFactory.adaptive_card(card)
 
 
-def get_jd_upload_card() -> Attachment:
-    """Card prompting user to upload JD file."""
+def get_docA_upload_card() -> Attachment:
+    """Card prompting user to upload Document A file."""
     card = {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
@@ -61,14 +83,14 @@ def get_jd_upload_card() -> Attachment:
         "body": [
             {
                 "type": "TextBlock",
-                "text": "📄 Attach Job Description File",
+                "text": "Step 1: Attach Document A",
                 "weight": "Bolder",
                 "size": "Medium",
                 "wrap": True
             },
             {
                 "type": "TextBlock",
-                "text": "In Teams: Use the 📎 paperclip button at the bottom of the chat to attach your file, then send.",
+                "text": "Use the paperclip button below the chat to attach your source document.",
                 "wrap": True,
                 "spacing": "Small"
             },
@@ -83,10 +105,8 @@ def get_jd_upload_card() -> Attachment:
         "actions": [
             {
                 "type": "Action.Submit",
-                "title": "← Back to Menu",
-                "data": {
-                    "action": "startOver"
-                }
+                "title": "Back",
+                "data": {"action": "startOver"}
             }
         ]
     }
@@ -94,7 +114,7 @@ def get_jd_upload_card() -> Attachment:
 
 
 def get_text_input_card(docA: str = "", docB: str = "", objective: str = "") -> Attachment:
-    """Card with text input fields for JD and Resume."""
+    """Card with text input fields for documents and analysis objective."""
     card = {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
@@ -102,15 +122,14 @@ def get_text_input_card(docA: str = "", docB: str = "", objective: str = "") -> 
         "body": [
             {
                 "type": "TextBlock",
-                "text": "🎯 General Gap Analysis - Paste Text",
+                "text": "Paste Your Documents",
                 "weight": "Bolder",
-                "size": "Large",
+                "size": "Medium",
                 "wrap": True
             },
             {
                 "type": "TextBlock",
-                "text": "Document A (Source/Current)",
-                "weight": "Bolder",
+                "text": "**Document A** (Source / Current)",
                 "spacing": "Medium",
                 "wrap": True
             },
@@ -118,14 +137,13 @@ def get_text_input_card(docA: str = "", docB: str = "", objective: str = "") -> 
                 "type": "Input.Text",
                 "id": "docA",
                 "isMultiline": True,
-                "placeholder": "Paste the full text of Document A (source/current state) here...",
-                "maxLength": 20000,
+                "placeholder": "Paste Document A content here (max 10,000 chars)...",
+                "maxLength": 10000,
                 "value": docA
             },
             {
                 "type": "TextBlock",
-                "text": "Document B (Target/Ideal/Guardrails)",
-                "weight": "Bolder",
+                "text": "**Document B** (Target / Requirements)",
                 "spacing": "Medium",
                 "wrap": True
             },
@@ -133,14 +151,13 @@ def get_text_input_card(docA: str = "", docB: str = "", objective: str = "") -> 
                 "type": "Input.Text",
                 "id": "docB",
                 "isMultiline": True,
-                "placeholder": "Paste the full text of Document B (target/ideal/requirements) here...",
-                "maxLength": 20000,
+                "placeholder": "Paste Document B content here (max 10,000 chars)...",
+                "maxLength": 10000,
                 "value": docB
             },
             {
                 "type": "TextBlock",
-                "text": "Analysis Objective",
-                "weight": "Bolder",
+                "text": "**Analysis Objective**",
                 "spacing": "Medium",
                 "wrap": True
             },
@@ -148,34 +165,30 @@ def get_text_input_card(docA: str = "", docB: str = "", objective: str = "") -> 
                 "type": "Input.Text",
                 "id": "analysisObjective",
                 "isMultiline": True,
-                "placeholder": "Describe the analysis objective, e.g. 'Find compliance gaps', 'Check for missing controls', 'Compare for completeness'...",
-                "maxLength": 2000,
+                "placeholder": "What should I analyze? e.g., 'Find compliance gaps'...",
+                "maxLength": 1000,
                 "value": objective
             }
         ],
         "actions": [
             {
                 "type": "Action.Submit",
-                "title": "🔍 Analyze Gaps",
-                "data": {
-                    "action": "analyzeText"
-                },
+                "title": "Analyze Gaps",
+                "data": {"action": "analyzeText"},
                 "style": "positive"
             },
             {
                 "type": "Action.Submit",
-                "title": "← Back",
-                "data": {
-                    "action": "startOver"
-                }
+                "title": "Back",
+                "data": {"action": "startOver"}
             }
         ]
     }
     return CardFactory.adaptive_card(card)
 
 
-def get_jd_received_card(filename: str) -> Attachment:
-    """Card confirming JD received and asking for resumes."""
+def get_docA_received_card(filename: str) -> Attachment:
+    """Card confirming Document A received and asking for Document B."""
     card = {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
@@ -183,7 +196,7 @@ def get_jd_received_card(filename: str) -> Attachment:
         "body": [
             {
                 "type": "TextBlock",
-                "text": "✅ Job Description Received",
+                "text": "Document A Received",
                 "weight": "Bolder",
                 "size": "Medium",
                 "color": "Good",
@@ -197,71 +210,34 @@ def get_jd_received_card(filename: str) -> Attachment:
             },
             {
                 "type": "TextBlock",
-                "text": "📎 Now upload Resume(s)",
+                "text": "Now attach Document B",
                 "weight": "Bolder",
                 "spacing": "Medium",
                 "wrap": True
             },
             {
                 "type": "TextBlock",
-                "text": "Attach up to 10 resume files (PDF, Word, or Text) and send.",
+                "text": "Attach your target/requirements document(s).",
                 "wrap": True,
-                "spacing": "Small"
+                "spacing": "Small",
+                "isSubtle": True
             }
         ],
         "actions": [
             {
                 "type": "Action.Submit",
-                "title": "❌ Cancel & Start Over",
-                "data": {
-                    "action": "startOver"
-                }
+                "title": "Cancel",
+                "data": {"action": "startOver"}
             }
         ]
     }
     return CardFactory.adaptive_card(card)
 
 
-def get_processing_card(jd_filename: str, resume_count: int) -> Attachment:
-    """Card showing processing status."""
-    card = {
-        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-        "type": "AdaptiveCard",
-        "version": "1.4",
-        "body": [
-            {
-                "type": "TextBlock",
-                "text": "⏳ Analyzing...",
-                "weight": "Bolder",
-                "size": "Medium",
-                "wrap": True
-            },
-            {
-                "type": "TextBlock",
-                "text": f"📄 JD: {jd_filename}",
-                "wrap": True,
-                "spacing": "Small"
-            },
-            {
-                "type": "TextBlock",
-                "text": f"📎 Resumes: {resume_count} file(s)",
-                "wrap": True,
-                "spacing": "Small"
-            },
-            {
-                "type": "TextBlock",
-                "text": "Please wait while I analyze the gaps...",
-                "wrap": True,
-                "spacing": "Medium",
-                "isSubtle": True
-            }
-        ]
-    }
-    return CardFactory.adaptive_card(card)
-
-
-def get_result_card(analysis_result: str, jd_filename: str, resume_filenames: list) -> Attachment:
+def get_result_card(analysis_result: str, docA_name: str, docB_names: list) -> Attachment:
     """Create the results Adaptive Card."""
+    docB_display = ", ".join(docB_names) if docB_names else "Document B"
+    
     card = {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
@@ -269,50 +245,41 @@ def get_result_card(analysis_result: str, jd_filename: str, resume_filenames: li
         "body": [
             {
                 "type": "TextBlock",
-                "text": "📊 Gap Analysis Results",
+                "text": "Gap Analysis Results",
                 "weight": "Bolder",
                 "size": "Large",
                 "wrap": True
             },
             {
-                "type": "TextBlock",
-                "text": f"**JD:** {jd_filename}",
-                "wrap": True,
-                "spacing": "Small"
-            },
-            {
-                "type": "TextBlock",
-                "text": f"**Resumes analyzed:** {len(resume_filenames)}",
-                "wrap": True,
-                "spacing": "Small"
+                "type": "FactSet",
+                "spacing": "Small",
+                "facts": [
+                    {"title": "Source (A):", "value": docA_name},
+                    {"title": "Target (B):", "value": docB_display}
+                ]
             },
             {
                 "type": "TextBlock",
                 "text": "---",
-                "wrap": True,
-                "spacing": "Medium"
+                "spacing": "Small"
             },
             {
                 "type": "TextBlock",
                 "text": analysis_result,
                 "wrap": True,
-                "spacing": "Medium"
+                "spacing": "Small"
             }
         ],
         "actions": [
             {
                 "type": "Action.Submit",
-                "title": "✏️ Edit Inputs",
-                "data": {
-                    "action": "pasteText"
-                }
+                "title": "Edit Inputs",
+                "data": {"action": "pasteText"}
             },
             {
                 "type": "Action.Submit",
-                "title": "🔄 New Analysis (Clear)",
-                "data": {
-                    "action": "startOver"
-                }
+                "title": "New Analysis",
+                "data": {"action": "startOver"}
             }
         ]
     }
@@ -328,7 +295,7 @@ def get_error_card(error_message: str) -> Attachment:
         "body": [
             {
                 "type": "TextBlock",
-                "text": "⚠️ Error",
+                "text": "Error",
                 "weight": "Bolder",
                 "size": "Medium",
                 "color": "Attention",
@@ -344,17 +311,260 @@ def get_error_card(error_message: str) -> Attachment:
         "actions": [
             {
                 "type": "Action.Submit",
-                "title": "🔄 Start Over",
-                "data": {
-                    "action": "startOver"
-                }
+                "title": "Try Again",
+                "data": {"action": "startOver"}
             }
         ]
     }
     return CardFactory.adaptive_card(card)
 
 
-# Keep old function for backward compatibility
-def get_analysis_card() -> Attachment:
-    """Backward compatible - redirects to welcome card."""
-    return get_welcome_card()
+# =============================================================================
+# COMPLETED CARDS (SAME content as original, NO buttons)
+# =============================================================================
+
+def get_welcome_card_completed() -> Attachment:
+    """Completed welcome card - same content, no buttons."""
+    card = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Gap Analysis Agent",
+                "weight": "Bolder",
+                "size": "Large",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": "Compare two documents to identify gaps, mismatches, or missing elements.",
+                "wrap": True,
+                "spacing": "Small"
+            },
+            {
+                "type": "ColumnSet",
+                "spacing": "Medium",
+                "columns": [
+                    {
+                        "type": "Column",
+                        "width": "stretch",
+                        "items": [
+                            {
+                                "type": "TextBlock",
+                                "text": "**Document A** = Source / Current state",
+                                "wrap": True
+                            },
+                            {
+                                "type": "TextBlock",
+                                "text": "**Document B** = Target / Requirements",
+                                "wrap": True,
+                                "spacing": "Small"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        # NO actions
+    }
+    return CardFactory.adaptive_card(card)
+
+
+def get_docA_upload_card_completed() -> Attachment:
+    """Completed Document A upload card - same content, no buttons."""
+    card = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Step 1: Attach Document A",
+                "weight": "Bolder",
+                "size": "Medium",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": "Use the paperclip button below the chat to attach your source document.",
+                "wrap": True,
+                "spacing": "Small"
+            },
+            {
+                "type": "TextBlock",
+                "text": "Supported: PDF, Word (.docx), Text (.txt)",
+                "wrap": True,
+                "spacing": "Small",
+                "isSubtle": True
+            }
+        ]
+        # NO actions
+    }
+    return CardFactory.adaptive_card(card)
+
+
+def get_text_input_card_completed(docA: str = "", docB: str = "", objective: str = "") -> Attachment:
+    """Completed text input card - shows what user entered as TextBlocks, no input fields or buttons."""
+    card = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Paste Your Documents",
+                "weight": "Bolder",
+                "size": "Medium",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": "**Document A** (Source / Current)",
+                "spacing": "Medium",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": docA if docA else "(empty)",
+                "wrap": True,
+                "spacing": "Small"
+            },
+            {
+                "type": "TextBlock",
+                "text": "**Document B** (Target / Requirements)",
+                "spacing": "Medium",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": docB if docB else "(empty)",
+                "wrap": True,
+                "spacing": "Small"
+            },
+            {
+                "type": "TextBlock",
+                "text": "**Analysis Objective**",
+                "spacing": "Medium",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": objective if objective else "(empty)",
+                "wrap": True,
+                "spacing": "Small"
+            }
+        ]
+        # NO actions
+    }
+    return CardFactory.adaptive_card(card)
+
+
+def get_docA_received_card_completed(filename: str) -> Attachment:
+    """Completed Document A received card - same content, no buttons."""
+    card = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Document A Received",
+                "weight": "Bolder",
+                "size": "Medium",
+                "color": "Good",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": f"File: {filename}",
+                "wrap": True,
+                "spacing": "Small"
+            },
+            {
+                "type": "TextBlock",
+                "text": "Now attach Document B",
+                "weight": "Bolder",
+                "spacing": "Medium",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": "Attach your target/requirements document(s).",
+                "wrap": True,
+                "spacing": "Small",
+                "isSubtle": True
+            }
+        ]
+        # NO actions
+    }
+    return CardFactory.adaptive_card(card)
+
+
+def get_result_card_completed(analysis_result: str, docA_name: str, docB_names: list) -> Attachment:
+    """Completed result card - same content, no buttons."""
+    docB_display = ", ".join(docB_names) if docB_names else "Document B"
+    
+    card = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Gap Analysis Results",
+                "weight": "Bolder",
+                "size": "Large",
+                "wrap": True
+            },
+            {
+                "type": "FactSet",
+                "spacing": "Small",
+                "facts": [
+                    {"title": "Source (A):", "value": docA_name},
+                    {"title": "Target (B):", "value": docB_display}
+                ]
+            },
+            {
+                "type": "TextBlock",
+                "text": "---",
+                "spacing": "Small"
+            },
+            {
+                "type": "TextBlock",
+                "text": analysis_result,
+                "wrap": True,
+                "spacing": "Small"
+            }
+        ]
+        # NO actions
+    }
+    return CardFactory.adaptive_card(card)
+
+
+def get_error_card_completed(error_message: str) -> Attachment:
+    """Completed error card - same content, no buttons."""
+    card = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.4",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": "Error",
+                "weight": "Bolder",
+                "size": "Medium",
+                "color": "Attention",
+                "wrap": True
+            },
+            {
+                "type": "TextBlock",
+                "text": error_message,
+                "wrap": True,
+                "spacing": "Small"
+            }
+        ]
+        # NO actions
+    }
+    return CardFactory.adaptive_card(card)

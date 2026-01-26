@@ -1,101 +1,98 @@
-"""Main entry point for the M365 Agent (Teams AI)."""
-import sys
-import traceback
+"""Main entry point for the M365 Gap Analysis Agent."""
 from aiohttp import web
-from botbuilder.core import MemoryStorage
-from teams import Application, ApplicationOptions, TeamState
+from aiohttp.web import Request, Response
+from botbuilder.core import (
+    BotFrameworkAdapter, 
+    BotFrameworkAdapterSettings, 
+    MemoryStorage, 
+    ConversationState, 
+    UserState,
+    TurnContext,
+)
+from botbuilder.schema import Activity
 
 from src.config import Config
+from src.bot import GapAnalysisBot
 from src.logger import setup_logger
-from src.actions import (
-    welcome_action,
-    handle_paste_text_action,
-    handle_analyze_text_action,
-    handle_start_over,
-    handle_file_upload
-)
 
 # Setup logging
 LOGGER = setup_logger("app")
 
+# Validate config
 try:
     Config.validate()
 except ValueError as e:
-    LOGGER.error(f"Config Error: {e}")
+    LOGGER.warning(f"Configuration Warning: {e}")
 
-# Create Application
-# We use MemoryStorage for local dev. In production, use blobstorage/cosmosdb.
-storage = MemoryStorage()
-app = Application(
-    ApplicationOptions(
-        bot_app_id=Config.APP_ID,
-        storage=storage,
-        adapter=None # Created automatically using env vars if None, or we can pass explicit adapter
-    )
+# Create adapter - use empty strings for local dev to skip auth
+SETTINGS = BotFrameworkAdapterSettings(
+    app_id="",
+    app_password=""
 )
+ADAPTER = BotFrameworkAdapter(SETTINGS)
 
-# --- Routes & Activities ---
+# Error handler
+async def on_error(context: TurnContext, error: Exception):
+    LOGGER.error(f"Bot error: {error}", exc_info=True)
+    try:
+        await context.send_activity("Sorry, an error occurred. Please try again.")
+    except:
+        pass
 
-@app.activity("membersAdded")
-async def on_members_added(context, state):
-    await welcome_action(context, state)
+ADAPTER.on_turn_error = on_error
 
-@app.message("start")
-@app.message("hi")
-@app.message("hello")
-async def on_message_start(context, state):
-    await welcome_action(context, state)
+# Create state storage - MemoryStorage for local dev
+# Note: In production, use Azure Blob Storage or Cosmos DB for persistence
+STORAGE = MemoryStorage()
+CONVERSATION_STATE = ConversationState(STORAGE)
+USER_STATE = UserState(STORAGE)
 
-@app.message("about")
-async def on_message_about(context, state):
-    await context.send_activity("🎯 **Gap Analysis Agent** (M365 Toolkit Version)\nCompare docs to find gaps.")
+# Create bot
+BOT = GapAnalysisBot(CONVERSATION_STATE, USER_STATE)
 
-@app.adaptive_card_action("pasteText")
-async def on_paste_text_submit(context, state, data):
-    await handle_paste_text_action(context, state, data)
 
-@app.adaptive_card_action("analyzeText")
-async def on_analyze_submit(context, state, data):
-    await handle_analyze_text_action(context, state, data)
+async def messages(req: Request) -> Response:
+    """Handle incoming bot messages."""
+    if "application/json" not in req.headers.get("Content-Type", ""):
+        return Response(status=415)
 
-@app.adaptive_card_action("startOver")
-async def on_start_over(context, state, data):
-    await handle_start_over(context, state, data)
-    
-@app.adaptive_card_action("uploadDocs")
-async def on_upload_docs_request(context, state, data):
-    # Just show instructions or set state
-    await context.send_activity("Please upload your Job Description file now.")
-    state.conversation["step"] = "waiting_jd"
+    try:
+        body = await req.json()
+        activity = Activity().deserialize(body)
+        auth_header = req.headers.get("Authorization", "")
+        
+        # Define bot logic
+        async def bot_logic(turn_context: TurnContext):
+            await BOT.on_turn(turn_context)
+        
+        # Try processing with adapter
+        try:
+            await ADAPTER.process_activity(activity, auth_header, bot_logic)
+        except PermissionError:
+            # Auth failed - this is expected in local dev with Agents Playground
+            # Create context manually and run bot logic
+            LOGGER.debug("Auth bypassed for local dev")
+            context = TurnContext(ADAPTER, activity)
+            
+            # Run bot logic directly
+            await BOT.on_turn(context)
+            
+            # Save state manually since we bypassed the adapter
+            await CONVERSATION_STATE.save_changes(context)
+            await USER_STATE.save_changes(context)
+        
+        return Response(status=200)
+        
+    except Exception as e:
+        LOGGER.error(f"Error: {e}", exc_info=True)
+        return Response(status=500, text=str(e))
 
-# Fallback for file attachments
-@app.activity("message")
-async def on_message_default(context, state):
-    # Check for attachments
-    if context.activity.attachments:
-        files = [a for a in context.activity.attachments if a.content_type and 'image' not in a.content_type.lower()]
-        if files:
-            await handle_file_upload(context, state, files)
-            return
-
-    # If no attachments and not handled by regex above
-    # Check text content
-    text = (context.activity.text or "").strip().lower()
-    if text not in ["start", "hi", "hello", "about"]:
-         await context.send_activity("I didn't understand that. Type 'start' to begin.")
-
-# --- Server Setup ---
-
-async def messages(req: web.Request) -> web.Response:
-    return await app.process_request(req)
 
 if __name__ == "__main__":
-    try:
-        app_server = web.Application()
-        app_server.router.add_post("/api/messages", messages)
-        
-        LOGGER.info(f"🚀 M365 Agent starting on port {Config.PORT}")
-        web.run_app(app_server, host="0.0.0.0", port=Config.PORT)
-    except Exception as e:
-        LOGGER.critical(f"Server error: {e}")
-        raise
+    LOGGER.info(f"🚀 M365 Gap Analysis Agent starting on port {Config.PORT}")
+    LOGGER.info(f"   Mode: {'Local Dev' if not Config.APP_ID else 'Production'}")
+    
+    app = web.Application()
+    app.router.add_post("/api/messages", messages)
+    
+    web.run_app(app, host="127.0.0.1", port=Config.PORT)
