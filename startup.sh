@@ -1,2 +1,2 @@
 #!/bin/bash
-gunicorn --bind 0.0.0.0:8000 --worker-class aiohttp.GunicornWebWorker app:APP
+gunicorn --bind=0.0.0.0 --worker-class aiohttp.worker.GunicornWebWorker app:APP

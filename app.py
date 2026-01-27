@@ -26,8 +26,8 @@ except ValueError as e:
 
 # Create adapter - use empty strings for local dev to skip auth
 SETTINGS = BotFrameworkAdapterSettings(
-    app_id="",
-    app_password=""
+    app_id=Config.APP_ID,
+    app_password=Config.APP_PASSWORD
 )
 ADAPTER = BotFrameworkAdapter(SETTINGS)
 
