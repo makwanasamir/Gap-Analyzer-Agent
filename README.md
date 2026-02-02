@@ -47,8 +47,8 @@ An AI-powered document comparison bot built with **M365 Agents SDK (Python)** th
 ### Step 1.1: Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/gap-analysis-agent.git
-cd gap-analysis-agent
+git clone https://github.com/makwanasamir/Gap-Analyzer-Agent.git
+cd Gap-Analyzer-Agent
 ```
 
 ### Step 1.2: Create Virtual Environment
