@@ -132,6 +132,8 @@ The bot will start at: `http://localhost:3978/api/messages`
 3. Open http://localhost:56150 in your browser
 4. Type `start` to begin testing the bot
 
+> 📝 **Note**: The Agents Playground does not support file uploads. This is expected. Use Teams for testing file upload functionality.
+
 **Alternative: Bot Framework Emulator**
 - Download from: https://github.com/microsoft/BotFramework-Emulator/releases
 - Connect to: `http://localhost:3978/api/messages`
@@ -175,11 +177,13 @@ This creates the identity for your bot.
 
 This allows the bot to download files from SharePoint/OneDrive in Teams.
 
+> 📝 **Note**: This permission is required only for file uploads, not text-only usage. Skip this step if you only need paste-text functionality.
+
 1. In your App Registration, go to **API permissions** (left sidebar)
 2. Click **+ Add a permission**
 3. Select **Microsoft Graph**
 4. Select **Application permissions** (NOT Delegated)
-5. Search for and check: `Sites.Read.All`
+5. Search for and check: `Files.Read.All`
 6. Click **Add permissions**
 7. Click **Grant admin consent for [Your Organization]**
 8. Confirm by clicking **Yes**
@@ -281,13 +285,6 @@ This allows the bot to download files from SharePoint/OneDrive in Teams.
 4. Click **Apply**
 5. Verify the Teams channel shows as **Running**
 
-### Step 2.11: Test in Web Chat
-
-1. In your Azure Bot, go to **Test in Web Chat** (left sidebar)
-2. Wait for the connection to establish
-3. Type `start` and press Enter
-4. If the bot responds with the welcome card, your Azure setup is complete! ✅
-
 ---
 
 ## Part 3: Deploy to Azure
@@ -385,6 +382,20 @@ cd ..
 6. Browse and select your `appPackage.zip`
 7. Click **Add** in the dialog that appears
 8. The bot will open in a chat — type `start` to test!
+
+> 📝 **Note**: If "Upload a custom app" is disabled, your Teams Administrator needs to enable it:
+>
+> 1. Go to **Teams Admin Center**: https://admin.teams.microsoft.com
+> 2. Navigate to **Teams apps** → **Permission policies**
+> 3. Click on **Global (Org-wide default)** (or create a custom policy)
+> 4. Under **Custom apps**, select **Allow all apps**
+> 5. Click **Save**
+> 6. Navigate to **Teams apps** → **Setup policies**
+> 7. Click on **Global (Org-wide default)**
+> 8. Enable **Upload custom apps** toggle
+> 9. Click **Save**
+> 10. Wait 15-30 minutes for changes to propagate
+
 
 ### Step 4.4: Deploy to Entire Organization
 
