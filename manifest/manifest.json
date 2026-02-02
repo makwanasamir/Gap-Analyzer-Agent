@@ -1,0 +1,76 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "{{BOT_ID}}",
+  "packageName": "com.{{COMPANY_NAME}}.gapanalysis",
+  "developer": {
+    "name": "{{COMPANY_NAME}}",
+    "websiteUrl": "{{COMPANY_WEBSITE}}",
+    "privacyUrl": "{{COMPANY_WEBSITE}}/privacy",
+    "termsOfUseUrl": "{{COMPANY_WEBSITE}}/terms"
+  },
+  "name": {
+    "short": "Gap Analysis Agent",
+    "full": "AI-Powered Document Gap Analysis Agent"
+  },
+  "description": {
+    "short": "Compare documents to identify gaps using AI",
+    "full": "The Gap Analysis Agent is an AI-powered Microsoft Teams bot that helps you compare any two sets of documents to identify gaps, discrepancies, and missing items.\n\n**Key Features:**\n• Upload PDF, Word, or Text documents directly in Teams\n• Paste text content for quick comparisons\n• Define custom analysis objectives\n• Get detailed gap reports with matched items, missing items, and recommendations\n• Powered by Azure OpenAI GPT-4o-mini for intelligent analysis\n\n**Use Cases:**\n• Compare requirements vs implementation documents\n• Analyze job descriptions vs resumes\n• Review compliance documents vs current processes\n• Audit standards vs actual documentation\n\n**How to Use:**\n1. Type 'start' to begin\n2. Choose to upload files or paste text\n3. Provide Document A (source) and Document B (target)\n4. Set your analysis objective\n5. Review the comprehensive gap analysis report\n\nBuilt with M365 Agents SDK for seamless Teams integration."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "{{BOT_ID}}",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal",
+            "team",
+            "groupchat"
+          ],
+          "commands": [
+            {
+              "title": "start",
+              "description": "Start a new gap analysis session"
+            },
+            {
+              "title": "about",
+              "description": "Learn about this bot and its capabilities"
+            },
+            {
+              "title": "help",
+              "description": "Show available commands and usage tips"
+            },
+            {
+              "title": "status",
+              "description": "Check current analysis session status"
+            },
+            {
+              "title": "reset",
+              "description": "Clear current session and start fresh"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{APP_DOMAIN}}"
+  ]
+}
