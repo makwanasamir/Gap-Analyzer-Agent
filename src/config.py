@@ -27,12 +27,12 @@ class Config:
     """Bot configuration."""
     
     # Bot Framework settings
-    # Fallback to known App ID if Env loading fails
-    APP_ID = _get_env("MicrosoftAppId") or "d49e9c0f-8da0-4428-afc5-9b1ee183fc72"
+    # Empty values = anonymous mode (for local testing)
+    APP_ID = _get_env("MicrosoftAppId")
     APP_PASSWORD = _get_env("MicrosoftAppPassword")
     APP_TYPE = _get_env("MicrosoftAppType", "SingleTenant")
-    # Fallback to known Tenant ID if Env loading fails
-    APP_TENANT_ID = _get_env("MicrosoftAppTenantId") or "9642bae0-7a99-4a78-92f0-c1f193216b51"
+    APP_TENANT_ID = _get_env("MicrosoftAppTenantId")
+
     
 
     

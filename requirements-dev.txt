@@ -37,8 +37,5 @@ bandit>=1.7.0
 # Dependency Auditing
 pip-audit>=2.7.0
 
-# Local Testing Tools
-m365-agents-playground
-
 # Azure CLI (for deployment)
 azure-cli
