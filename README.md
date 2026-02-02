@@ -97,12 +97,6 @@ If you haven't already deployed an Azure OpenAI model:
 
 2. Edit `.env` and fill in your Azure OpenAI credentials:
    ```env
-   # Leave these empty for local testing
-   MicrosoftAppId=
-   MicrosoftAppPassword=
-   MicrosoftAppType=SingleTenant
-   MicrosoftAppTenantId=
-
    # Fill these with your Azure OpenAI details
    AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com
    AZURE_OPENAI_KEY=your-azure-openai-api-key
