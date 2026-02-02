@@ -1,7 +1,10 @@
 """File handling utilities for extracting text from documents."""
 import io
 import httpx
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class FileHandler:
@@ -34,6 +37,126 @@ class FileHandler:
             response = await client.get(url, headers=headers, follow_redirects=True)
             response.raise_for_status()
             return response.content
+
+    @staticmethod
+    async def download_file_with_bot_credentials(url: str) -> bytes:
+        """Download file using the Bot's app credentials via Microsoft Graph API.
+        
+        This is required for SharePoint/OneDrive files in Teams.
+        The app registration MUST have Sites.Read.All or Files.Read.All 
+        API permissions with admin consent for this to work.
+        """
+        try:
+            from msal import ConfidentialClientApplication
+            from src.config import Config
+            import re
+            import urllib.parse
+            
+            # SharePoint files require Graph API access
+            authority = f"https://login.microsoftonline.com/{Config.APP_TENANT_ID}"
+            scope = ["https://graph.microsoft.com/.default"]
+            
+            logger.info(f"Attempting Graph API token acquisition for tenant: {Config.APP_TENANT_ID}")
+            
+            # Create MSAL app for client credentials flow
+            msal_app = ConfidentialClientApplication(
+                client_id=Config.APP_ID,
+                client_credential=Config.APP_PASSWORD,
+                authority=authority
+            )
+            
+            # Acquire token using client credentials (app-only)
+            result = msal_app.acquire_token_silent(scope, account=None)
+            if not result:
+                result = msal_app.acquire_token_for_client(scopes=scope)
+            
+            if "access_token" not in result:
+                error = result.get("error", "Unknown")
+                error_desc = result.get("error_description", "No description")
+                raise PermissionError(f"Failed to get Graph token: {error} - {error_desc}")
+            
+            token = result["access_token"]
+            logger.info(f"Got Graph API token successfully")
+            
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Accept': 'application/octet-stream'
+            }
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                # Convert SharePoint URL to Graph API format
+                # Format: https://tenant-my.sharepoint.com/personal/user_domain/Documents/path/file.pdf
+                
+                if "sharepoint.com" in url.lower():
+                    logger.info(f"Converting SharePoint URL to Graph API format...")
+                    
+                    # Extract hostname and path from URL
+                    parsed = urllib.parse.urlparse(url)
+                    hostname = parsed.netloc  # e.g., o365testlabca-my.sharepoint.com
+                    path = urllib.parse.unquote(parsed.path)  # Decode URL encoding
+                    
+                    logger.info(f"Hostname: {hostname}, Path: {path}")
+                    
+                    # For personal OneDrive URLs (contains -my.sharepoint.com)
+                    # Format: /personal/{user_folder}/Documents/{file_path}
+                    if "-my.sharepoint.com" in hostname:
+                        # Extract user folder and file path
+                        match = re.match(r'/personal/([^/]+)/Documents/(.+)$', path)
+                        if match:
+                            user_folder = match.group(1)  # e.g., testmaker2_o365testlab_ca
+                            file_path = match.group(2)    # e.g., Microsoft Teams Chat Files/file.pdf
+                            
+                            logger.info(f"OneDrive for Business - User: {user_folder}, File: {file_path}")
+                            
+                            # Use Graph API to get the site and drive
+                            # First, resolve the site  
+                            site_url = f"https://graph.microsoft.com/v1.0/sites/{hostname}:/personal/{user_folder}"
+                            logger.info(f"Resolving site: {site_url}")
+                            
+                            site_response = await client.get(site_url, headers={'Authorization': f'Bearer {token}'})
+                            
+                            if site_response.status_code == 200:
+                                site_data = site_response.json()
+                                site_id = site_data.get("id")
+                                logger.info(f"Site resolved, ID: {site_id}")
+                                
+                                # Now get the file content via drive
+                                file_download_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root:/{file_path}:/content"
+                                logger.info(f"Downloading via: {file_download_url}")
+                                
+                                file_response = await client.get(file_download_url, headers=headers, follow_redirects=True)
+                                file_response.raise_for_status()
+                                return file_response.content
+                            else:
+                                logger.warning(f"Site resolution failed: {site_response.status_code} - {site_response.text[:200]}")
+                    
+                    # For regular SharePoint sites
+                    else:
+                        # Try to resolve via shares API using sharing URL
+                        # Encode the URL for the shares endpoint
+                        import base64
+                        encoded_url = base64.urlsafe_b64encode(url.encode()).decode().rstrip('=')
+                        shares_url = f"https://graph.microsoft.com/v1.0/shares/u!{encoded_url}/driveItem/content"
+                        
+                        logger.info(f"Trying shares API: {shares_url}")
+                        
+                        shares_response = await client.get(shares_url, headers=headers, follow_redirects=True)
+                        if shares_response.status_code == 200:
+                            return shares_response.content
+                        else:
+                            logger.warning(f"Shares API failed: {shares_response.status_code}")
+                
+                # Fallback: try direct URL (might work for some configurations)
+                response = await client.get(url, headers=headers, follow_redirects=True)
+                response.raise_for_status()
+                return response.content
+                
+        except Exception as e:
+            logger.error(f"Failed to download with Graph API: {e}")
+            # Fallback: try without authentication (for public URLs or testing)
+            logger.info("Trying fallback download without auth...")
+            return await FileHandler.download_file(url, None)
+
     
     @staticmethod
     def extract_text_from_pdf(content: bytes) -> str:
@@ -125,6 +248,29 @@ class FileHandler:
             )
         
         content = await FileHandler.download_file(url, auth_token)
+        
+        if len(content) > FileHandler.MAX_FILE_SIZE:
+            raise ValueError(
+                f"File too large: {len(content) / 1024 / 1024:.1f} MB. "
+                f"Maximum size is {FileHandler.MAX_FILE_SIZE / 1024 / 1024:.0f} MB."
+            )
+        
+        return FileHandler.extract_text(content, filename)
+
+    @staticmethod
+    async def process_attachment_with_bot_credentials(url: str, filename: str) -> str:
+        """Download and extract text using Bot's credentials.
+        
+        This method should be used for Teams file attachments which are 
+        hosted on SharePoint and require authentication.
+        """
+        if not FileHandler.is_supported(filename):
+            raise ValueError(
+                f"Unsupported file type: {filename}. "
+                f"Supported: PDF, Word (.docx), Text (.txt)"
+            )
+        
+        content = await FileHandler.download_file_with_bot_credentials(url)
         
         if len(content) > FileHandler.MAX_FILE_SIZE:
             raise ValueError(

@@ -63,7 +63,7 @@ class AzureOpenAIClient:
                     is_server_error = "500" in error_str or "503" in error_str
                     
                     if (is_rate_limit or is_server_error) and attempt < max_retries - 1:
-                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)  # nosec B311 - not for security
                         await asyncio.sleep(delay)
                         continue
                     raise e

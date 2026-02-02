@@ -50,3 +50,7 @@ test-results/
 
 # User notes (optional, usually kept but depends on preference)
 notes.txt
+
+# Company-specific app packages (not for public repo)
+myappPackage/
+myappPackage.zip
